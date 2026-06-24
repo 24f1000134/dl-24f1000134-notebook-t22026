@@ -1,0 +1,647 @@
+{
+ "cells": [
+  {
+   "cell_type": "code",
+   "execution_count": 1,
+   "id": "1634c4f9",
+   "metadata": {
+    "_cell_guid": "b1076dfc-b9ad-4769-8c92-a6c4dae69d19",
+    "_uuid": "8f2839f25d086af736a60e9eeb907d3b93b6e0e5",
+    "execution": {
+     "iopub.execute_input": "2026-06-24T16:52:37.590977Z",
+     "iopub.status.busy": "2026-06-24T16:52:37.590604Z",
+     "iopub.status.idle": "2026-06-24T16:52:39.600353Z",
+     "shell.execute_reply": "2026-06-24T16:52:39.599477Z"
+    },
+    "papermill": {
+     "duration": 2.016404,
+     "end_time": "2026-06-24T16:52:39.602385+00:00",
+     "exception": false,
+     "start_time": "2026-06-24T16:52:37.585981+00:00",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "/kaggle/input/competitions/smart-mcq-solver-challenge/sample_submission.csv\n",
+      "/kaggle/input/competitions/smart-mcq-solver-challenge/train.csv\n",
+      "/kaggle/input/competitions/smart-mcq-solver-challenge/test.csv\n"
+     ]
+    }
+   ],
+   "source": [
+    "# This Python 3 environment comes with many helpful analytics libraries installed\n",
+    "# It is defined by the kaggle/python Docker image: https://github.com/kaggle/docker-python\n",
+    "# For example, here's several helpful packages to load\n",
+    "\n",
+    "import numpy as np # linear algebra\n",
+    "import pandas as pd # data processing, CSV file I/O (e.g. pd.read_csv)\n",
+    "\n",
+    "# Input data files are available in the read-only \"../input/\" directory\n",
+    "# For example, running this (by clicking run or pressing Shift+Enter) will list all files under the input directory\n",
+    "\n",
+    "import os\n",
+    "for dirname, _, filenames in os.walk('/kaggle/input'):\n",
+    "    for filename in filenames:\n",
+    "        print(os.path.join(dirname, filename))\n",
+    "\n",
+    "# You can write up to 20GB to the current directory (/kaggle/working/) that gets preserved as output when you create a version using \"Save & Run All\" \n",
+    "# You can also write temporary files to /kaggle/temp/, but they won't be saved outside of the current session\n",
+    "\n",
+    "# Use the kagglehub client library to attach Kaggle resources like competitions, datasets, and models to your session\n",
+    "# Learn more about kagglehub: https://github.com/Kaggle/kagglehub/blob/main/README.md\n",
+    "\n",
+    "import kagglehub\n",
+    "# kagglehub.dataset_download('<owner>/<dataset-slug>')"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 2,
+   "id": "899140e9",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2026-06-24T16:52:39.609333Z",
+     "iopub.status.busy": "2026-06-24T16:52:39.608560Z",
+     "iopub.status.idle": "2026-06-24T16:52:41.301112Z",
+     "shell.execute_reply": "2026-06-24T16:52:41.300184Z"
+    },
+    "papermill": {
+     "duration": 1.698006,
+     "end_time": "2026-06-24T16:52:41.303143+00:00",
+     "exception": false,
+     "start_time": "2026-06-24T16:52:39.605137+00:00",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [],
+   "source": [
+    "import pandas as pd\n",
+    "import numpy as np\n",
+    "import string\n",
+    "from sklearn.feature_extraction.text import TfidfVectorizer, ENGLISH_STOP_WORDS\n",
+    "from sklearn.metrics.pairwise import cosine_similarity"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 3,
+   "id": "44d3f57a",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2026-06-24T16:52:41.310353Z",
+     "iopub.status.busy": "2026-06-24T16:52:41.309360Z",
+     "iopub.status.idle": "2026-06-24T16:52:41.362860Z",
+     "shell.execute_reply": "2026-06-24T16:52:41.361866Z"
+    },
+    "papermill": {
+     "duration": 0.058978,
+     "end_time": "2026-06-24T16:52:41.364720+00:00",
+     "exception": false,
+     "start_time": "2026-06-24T16:52:41.305742+00:00",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "Dataset loaded successfully. Shape: (2000, 8)\n"
+     ]
+    }
+   ],
+   "source": [
+    "TRAIN_PATH = '/kaggle/input/competitions/smart-mcq-solver-challenge/train.csv'\n",
+    "train_df = pd.read_csv(TRAIN_PATH)\n",
+    "print(\"Dataset loaded successfully. Shape:\", train_df.shape)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 4,
+   "id": "7877ddd3",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2026-06-24T16:52:41.371104Z",
+     "iopub.status.busy": "2026-06-24T16:52:41.370848Z",
+     "iopub.status.idle": "2026-06-24T16:52:41.390276Z",
+     "shell.execute_reply": "2026-06-24T16:52:41.389163Z"
+    },
+    "papermill": {
+     "duration": 0.024542,
+     "end_time": "2026-06-24T16:52:41.391888+00:00",
+     "exception": false,
+     "start_time": "2026-06-24T16:52:41.367346+00:00",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "Q1: Frequency Distribution of correct answers:\n",
+      "answer\n",
+      "B    490\n",
+      "C    459\n",
+      "A    369\n",
+      "D    358\n",
+      "E    324\n",
+      "Name: count, dtype: int64\n",
+      "Sum of occurrences of the most and least frequent options: 814\n"
+     ]
+    }
+   ],
+   "source": [
+    "# Q1: Frequency Distribution & Sum of Extremes\n",
+    "\n",
+    "answer_counts = train_df['answer'].value_counts()\n",
+    "most_freq_count = answer_counts.iloc[0]\n",
+    "least_freq_count = answer_counts.iloc[-1]\n",
+    "q1_sum = most_freq_count + least_freq_count\n",
+    "\n",
+    "print(\"Q1: Frequency Distribution of correct answers:\")\n",
+    "print(answer_counts)\n",
+    "print(f\"Sum of occurrences of the most and least frequent options: {q1_sum}\")"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 5,
+   "id": "58fb5c62",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2026-06-24T16:52:41.400003Z",
+     "iopub.status.busy": "2026-06-24T16:52:41.399338Z",
+     "iopub.status.idle": "2026-06-24T16:52:41.421711Z",
+     "shell.execute_reply": "2026-06-24T16:52:41.420824Z"
+    },
+    "papermill": {
+     "duration": 0.028893,
+     "end_time": "2026-06-24T16:52:41.423439+00:00",
+     "exception": false,
+     "start_time": "2026-06-24T16:52:41.394546+00:00",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "Q2: Total number of unique words across the cleaned prompt column: 859\n"
+     ]
+    }
+   ],
+   "source": [
+    "# Q2: Cleaned Vocabulary Size\n",
+    "\n",
+    "def clean_text(text):\n",
+    "    if not isinstance(text, str):\n",
+    "        return []\n",
+    "   \n",
+    "    text = text.lower()\n",
+    "\n",
+    "    text = text.translate(str.maketrans('', '', string.punctuation))\n",
+    " \n",
+    "    return text.split()\n",
+    "\n",
+    "unique_words = set()\n",
+    "for prompt in train_df['prompt']:\n",
+    "    unique_words.update(clean_text(prompt))\n",
+    "\n",
+    "print(f\"Q2: Total number of unique words across the cleaned prompt column: {len(unique_words)}\")"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 6,
+   "id": "92e0faae",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2026-06-24T16:52:41.430089Z",
+     "iopub.status.busy": "2026-06-24T16:52:41.429547Z",
+     "iopub.status.idle": "2026-06-24T16:52:41.438647Z",
+     "shell.execute_reply": "2026-06-24T16:52:41.437869Z"
+    },
+    "papermill": {
+     "duration": 0.014235,
+     "end_time": "2026-06-24T16:52:41.440333+00:00",
+     "exception": false,
+     "start_time": "2026-06-24T16:52:41.426098+00:00",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "Q3: Number of words left in Row ID 1 prompt after stop word filtering: 13\n"
+     ]
+    }
+   ],
+   "source": [
+    "# Q3: Filtering Stop Words for Row ID 1\n",
+    "\n",
+    "\n",
+    "row_1 = train_df[train_df['id'] == 1].iloc[0]\n",
+    "row_1_words = clean_text(row_1['prompt'])\n",
+    "filtered_row_1_words = [w for w in row_1_words if w not in ENGLISH_STOP_WORDS]\n",
+    "\n",
+    "print(f\"Q3: Number of words left in Row ID 1 prompt after stop word filtering: {len(filtered_row_1_words)}\")"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 7,
+   "id": "dac85b60",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2026-06-24T16:52:41.447048Z",
+     "iopub.status.busy": "2026-06-24T16:52:41.446466Z",
+     "iopub.status.idle": "2026-06-24T16:52:41.641265Z",
+     "shell.execute_reply": "2026-06-24T16:52:41.640388Z"
+    },
+    "papermill": {
+     "duration": 0.199952,
+     "end_time": "2026-06-24T16:52:41.642950+00:00",
+     "exception": false,
+     "start_time": "2026-06-24T16:52:41.442998+00:00",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "Q4: Total number of feature columns (vocabulary size) generated: 2762\n"
+     ]
+    }
+   ],
+   "source": [
+    "# Q4: TF-IDF Vectorizer Vocabulary Size\n",
+    "\n",
+    "combined_texts = (\n",
+    "    train_df['prompt'].fillna('') + \" \" +\n",
+    "    train_df['A'].fillna('') + \" \" +\n",
+    "    train_df['B'].fillna('') + \" \" +\n",
+    "    train_df['C'].fillna('') + \" \" +\n",
+    "    train_df['D'].fillna('') + \" \" +\n",
+    "    train_df['E'].fillna('')\n",
+    ").tolist()\n",
+    "\n",
+    "vectorizer = TfidfVectorizer(stop_words='english')\n",
+    "vectorizer.fit(combined_texts)\n",
+    "feature_columns_count = len(vectorizer.get_feature_names_out())\n",
+    "\n",
+    "print(f\"Q4: Total number of feature columns (vocabulary size) generated: {feature_columns_count}\")"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 8,
+   "id": "22988362",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2026-06-24T16:52:41.650181Z",
+     "iopub.status.busy": "2026-06-24T16:52:41.649459Z",
+     "iopub.status.idle": "2026-06-24T16:52:41.660931Z",
+     "shell.execute_reply": "2026-06-24T16:52:41.660125Z"
+    },
+    "papermill": {
+     "duration": 0.01665,
+     "end_time": "2026-06-24T16:52:41.662478+00:00",
+     "exception": false,
+     "start_time": "2026-06-24T16:52:41.645828+00:00",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "Q5: Cosine similarity between prompt and Option A for Row ID 1: 0.2720\n"
+     ]
+    }
+   ],
+   "source": [
+    "# Q5: Cosine Similarity for Row ID 1 (Prompt vs Option A)\n",
+    "\n",
+    "prompt_vec_1 = vectorizer.transform([row_1['prompt']])\n",
+    "optA_vec_1 = vectorizer.transform([str(row_1['A'])])\n",
+    "similarity_score_1 = cosine_similarity(prompt_vec_1, optA_vec_1)[0][0]\n",
+    "\n",
+    "print(f\"Q5: Cosine similarity between prompt and Option A for Row ID 1: {similarity_score_1:.4f}\")"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 9,
+   "id": "ac7366d0",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2026-06-24T16:52:41.669952Z",
+     "iopub.status.busy": "2026-06-24T16:52:41.669236Z",
+     "iopub.status.idle": "2026-06-24T16:52:53.198412Z",
+     "shell.execute_reply": "2026-06-24T16:52:53.197538Z"
+    },
+    "papermill": {
+     "duration": 11.534854,
+     "end_time": "2026-06-24T16:52:53.200097+00:00",
+     "exception": false,
+     "start_time": "2026-06-24T16:52:41.665243+00:00",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "Q6: Percentage of instances where highest cosine similarity matches the correct answer: 13.55%\n"
+     ]
+    }
+   ],
+   "source": [
+    "# Q6: Highest Cosine Similarity Match Percentage\n",
+    "\n",
+    "correct_sim_matches = 0\n",
+    "options = ['A', 'B', 'C', 'D', 'E']\n",
+    "\n",
+    "for idx, row in train_df.iterrows():\n",
+    "    p_vec = vectorizer.transform([str(row['prompt'])])\n",
+    "    sims = []\n",
+    "    \n",
+    "    for opt in options:\n",
+    "        o_vec = vectorizer.transform([str(row[opt])])\n",
+    "        sims.append(cosine_similarity(p_vec, o_vec)[0][0])\n",
+    "    \n",
+    "    best_opt = options[np.argmax(sims)]\n",
+    "    if best_opt == row['answer']:\n",
+    "        correct_sim_matches += 1\n",
+    "\n",
+    "match_percentage = (correct_sim_matches / len(train_df)) * 100\n",
+    "print(f\"Q6: Percentage of instances where highest cosine similarity matches the correct answer: {match_percentage:.2f}%\")"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 10,
+   "id": "9f44a88d",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2026-06-24T16:52:53.207670Z",
+     "iopub.status.busy": "2026-06-24T16:52:53.207008Z",
+     "iopub.status.idle": "2026-06-24T16:52:53.211647Z",
+     "shell.execute_reply": "2026-06-24T16:52:53.210867Z"
+    },
+    "papermill": {
+     "duration": 0.010194,
+     "end_time": "2026-06-24T16:52:53.213247+00:00",
+     "exception": false,
+     "start_time": "2026-06-24T16:52:53.203053+00:00",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [],
+   "source": [
+    "def map_at_3(true_answer, predicted_list):\n",
+    "\n",
+    " \n",
+    "    if true_answer == predicted_list[0]:\n",
+    "        return 1.0\n",
+    "   \n",
+    "    elif true_answer == predicted_list[1]:\n",
+    "        return 0.5\n",
+    "  \n",
+    "    elif true_answer == predicted_list[2]:\n",
+    "        return 1/3\n",
+    "   \n",
+    "    else:\n",
+    "        return 0.0"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 11,
+   "id": "46cbc296",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2026-06-24T16:52:53.220581Z",
+     "iopub.status.busy": "2026-06-24T16:52:53.220074Z",
+     "iopub.status.idle": "2026-06-24T16:52:53.225217Z",
+     "shell.execute_reply": "2026-06-24T16:52:53.224275Z"
+    },
+    "papermill": {
+     "duration": 0.010598,
+     "end_time": "2026-06-24T16:52:53.226754+00:00",
+     "exception": false,
+     "start_time": "2026-06-24T16:52:53.216156+00:00",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "Question 7: Ground truth 'C', Predictions ['C', 'A', 'B']\n",
+      "MAP@3 Score: 1.0000\n",
+      "--------------------------------------------------\n"
+     ]
+    }
+   ],
+   "source": [
+    "# Question 7\n",
+    "\n",
+    "q7_ground_truth = 'C'\n",
+    "q7_predictions = ['C', 'A', 'B']\n",
+    "\n",
+    "q7_score = map_at_3(q7_ground_truth, q7_predictions)\n",
+    "print(f\"Question 7: Ground truth '{q7_ground_truth}', Predictions {q7_predictions}\")\n",
+    "print(f\"MAP@3 Score: {q7_score:.4f}\")\n",
+    "print(\"-\" * 50)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 12,
+   "id": "687ad747",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2026-06-24T16:52:53.233924Z",
+     "iopub.status.busy": "2026-06-24T16:52:53.233602Z",
+     "iopub.status.idle": "2026-06-24T16:52:53.238894Z",
+     "shell.execute_reply": "2026-06-24T16:52:53.237809Z"
+    },
+    "papermill": {
+     "duration": 0.010842,
+     "end_time": "2026-06-24T16:52:53.240480+00:00",
+     "exception": false,
+     "start_time": "2026-06-24T16:52:53.229638+00:00",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "Question 8: Ground truth 'B', Predictions ['D', 'B', 'E']\n",
+      "MAP@3 Score: 0.5000\n"
+     ]
+    }
+   ],
+   "source": [
+    "# Question 8\n",
+    "\n",
+    "q8_ground_truth = 'B'\n",
+    "q8_predictions = ['D', 'B', 'E']\n",
+    "\n",
+    "q8_score = map_at_3(q8_ground_truth, q8_predictions)\n",
+    "print(f\"Question 8: Ground truth '{q8_ground_truth}', Predictions {q8_predictions}\")\n",
+    "print(f\"MAP@3 Score: {q8_score:.4f}\")"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 13,
+   "id": "21c0e016",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2026-06-24T16:52:53.247713Z",
+     "iopub.status.busy": "2026-06-24T16:52:53.247454Z",
+     "iopub.status.idle": "2026-06-24T16:53:04.725417Z",
+     "shell.execute_reply": "2026-06-24T16:53:04.724383Z"
+    },
+    "papermill": {
+     "duration": 11.483739,
+     "end_time": "2026-06-24T16:53:04.727280+00:00",
+     "exception": false,
+     "start_time": "2026-06-24T16:52:53.243541+00:00",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "Q9: Overall MAP@3 score of the 'Majority Class' baseline: 0.4213\n",
+      "Q10: Final average MAP@3 score of the TF-IDF pipeline: 0.2962\n"
+     ]
+    }
+   ],
+   "source": [
+    "# Function for Q9 and Q10\n",
+    "\n",
+    "def map_at_3(true_answer, predicted_list):\n",
+    "    \"\"\"Calculates MAP@3 for a single row.\"\"\"\n",
+    "    if true_answer == predicted_list[0]:\n",
+    "        return 1.0\n",
+    "    elif true_answer == predicted_list[1]:\n",
+    "        return 0.5\n",
+    "    elif true_answer == predicted_list[2]:\n",
+    "        return 1/3\n",
+    "    else:\n",
+    "        return 0.0\n",
+    "\n",
+    "\n",
+    "# Q9: Majority Class Baseline MAP@3\n",
+    "\n",
+    "top_3_classes = answer_counts.index[:3].tolist()\n",
+    "majority_baseline_scores = []\n",
+    "\n",
+    "for idx, row in train_df.iterrows():\n",
+    "    majority_baseline_scores.append(map_at_3(row['answer'], top_3_classes))\n",
+    "\n",
+    "majority_map3 = np.mean(majority_baseline_scores)\n",
+    "print(f\"Q9: Overall MAP@3 score of the 'Majority Class' baseline: {majority_map3:.4f}\")\n",
+    "\n",
+    "\n",
+    "# Q10: TF-IDF Pipeline MAP@3\n",
+    "\n",
+    "tfidf_pipeline_scores = []\n",
+    "\n",
+    "for idx, row in train_df.iterrows():\n",
+    "    p_vec = vectorizer.transform([str(row['prompt'])])\n",
+    "    opt_sims = []\n",
+    "    \n",
+    "    for opt in options:\n",
+    "        o_vec = vectorizer.transform([str(row[opt])])\n",
+    "        sim = cosine_similarity(p_vec, o_vec)[0][0]\n",
+    "        opt_sims.append((opt, sim))\n",
+    "    \n",
+    "    opt_sims.sort(key=lambda x: x[1], reverse=True)\n",
+    "    top_3_preds = [x[0] for x in opt_sims[:3]]\n",
+    "    \n",
+    "    tfidf_pipeline_scores.append(map_at_3(row['answer'], top_3_preds))\n",
+    "\n",
+    "tfidf_map3 = np.mean(tfidf_pipeline_scores)\n",
+    "print(f\"Q10: Final average MAP@3 score of the TF-IDF pipeline: {tfidf_map3:.4f}\")\n"
+   ]
+  }
+ ],
+ "metadata": {
+  "kaggle": {
+   "accelerator": "none",
+   "dataSources": [],
+   "dockerImageVersionId": 28755,
+   "isGpuEnabled": false,
+   "isInternetEnabled": false,
+   "language": "python",
+   "sourceType": "notebook"
+  },
+  "kernelspec": {
+   "display_name": "Python 3",
+   "language": "python",
+   "name": "python3"
+  },
+  "language_info": {
+   "codemirror_mode": {
+    "name": "ipython",
+    "version": 3
+   },
+   "file_extension": ".py",
+   "mimetype": "text/x-python",
+   "name": "python",
+   "nbconvert_exporter": "python",
+   "pygments_lexer": "ipython3",
+   "version": "3.12.13"
+  },
+  "papermill": {
+   "default_parameters": {},
+   "duration": 30.65615,
+   "end_time": "2026-06-24T16:53:05.450437+00:00",
+   "environment_variables": {},
+   "exception": null,
+   "input_path": "__notebook__.ipynb",
+   "output_path": "__notebook__.ipynb",
+   "parameters": {},
+   "start_time": "2026-06-24T16:52:34.794287+00:00",
+   "version": "2.7.0"
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 5
+}
