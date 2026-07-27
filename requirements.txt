@@ -1,18 +1,35 @@
-numpy>=1.26.0
-pandas>=2.2.0
-matplotlib>=3.8.0
-seaborn
-scikit-learn>=1.5.0
-torch>=2.3.0
+# Numerical / data handling
+numpy
+pandas
+scipy
+
+# ML / evaluation utilities
+scikit-learn
+
+# Deep learning framework
+torch
+
+# Transformers 
 transformers
-sentence-transformers>=3.0.0
-lightgbm
-protobuf==7.35.0
-peft
-bitsandbytes
-tiktoken
-pyyaml==6.0.3
-referencing==0.37.0
-requests==2.34.2
-tqdm==4.67.3
+tokenizers
+accelerate
+sentencepiece
+
+# Retrieval-Augmented Generation 
+sentence-transformers
+faiss-cpu
+
+# Model artifact registry
+kagglehub
+
+# Experiment tracking
 wandb
+
+# EDA / visualization
+matplotlib
+seaborn
+wordcloud
+
+# Progress bars / utilities
+tqdm
+
