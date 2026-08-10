@@ -33,3 +33,7 @@ wordcloud
 # Progress bars / utilities
 tqdm
 
+# Deployment
+streamlit
+
+
